@@ -1,23 +1,33 @@
 #RAID
 lsblk
-mdadm --create /dev/mix -l 5 -n /dev/sd[b,c,d]
+mdadm --create /dev/md1 -l 5 -n 3 /dev/sd[b,c,d]
 
-mdadm /proc/mdstat
-mdadm --datail --scan   #to scan the raid array
+cat /proc/mdstat
+mdadm --detail --scan >> /etc/mdadm.conf   #to scan the raid array
 nano /etc/mdadm.conf    #past the output of the past command
 
 #LVM
-pvcreate /dev/mix
-vgcreate -n vg_group /dev/mix
+pvcreate /dev/md1
+vgcreate -n vg_group /dev/md1
 lvcreate -L 2G -n lv_disk vg_group
 mkfs.ext4 /dev/vg_group/lv_disk
 mkdir /amira1
-chmod 600 /amira1
+chmod 755 /amira1
 mount /dev/vg_group/lv_disk /amira1
 df -h
 
 blkid /dev/vg_group/lv_disk
 nano /etc/fstab 
-   #UUID /amira1 ext4 defaults 0 0
+   #UUID /amira1 ext4  defaults 0 0
+
 lvextend -L +1G /dev/vg_group/lv_disk
-resize2fs /amira1
+resize2fs /dev/vg_group/lv_disk
+
+#remove th RAID
+
+umount /amira1
+lvremove /dev/vg_group/lv_disk
+vgremove vg_group
+pvremove /dev/md1
+mdadm --stop /dev/md1
+mdadm --zero-superblock /dev/sd[b,c,d]
